@@ -66,7 +66,13 @@ impl Agent for GeminiAgent {
 
         let response: GeminiResponse = response_text.json().await?;
 
-        Ok(response.candidates.into_iter().next().unwrap().content.into())
+        Ok(response
+            .candidates
+            .into_iter()
+            .next()
+            .unwrap()
+            .content
+            .into())
     }
 }
 

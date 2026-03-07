@@ -2,16 +2,19 @@ use std::error::Error;
 use std::io;
 use std::time::Duration;
 
-use crossterm::event::{Event, EventStream, KeyCode, KeyModifiers};
+use crossterm::event::{
+    DisableMouseCapture, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers,
+    MouseEventKind,
+};
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use futures_util::StreamExt;
-use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 use tokio::sync::mpsc;
 use tokio::task::{LocalSet, spawn_local};
 
-use crate::agents::{Agent, Chat};
+use crate::agents::Chat;
 
 mod app;
 mod ui;
@@ -23,13 +26,13 @@ struct TerminalGuard;
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let _ = crossterm::terminal::disable_raw_mode();
-        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
     }
 }
 
-pub async fn run<A: Agent + 'static>(chat: Chat<A>) -> Result<(), Box<dyn Error>> {
+pub async fn run(chat: Chat) -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen)?;
+    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let _guard = TerminalGuard;
 
     let backend = CrosstermBackend::new(io::stdout());
@@ -62,7 +65,8 @@ pub async fn run<A: Agent + 'static>(chat: Chat<A>) -> Result<(), Box<dyn Error>
                 // Clamp scroll offset based on current terminal size
                 let size = terminal.size()?;
                 let inner_w = size.width.saturating_sub(2);
-                let inner_h = ((size.height as u32 * ui::HISTORY_PANE_PERCENT as u32 / 100) as u16).saturating_sub(2);
+                let inner_h = ((size.height as u32 * ui::HISTORY_PANE_PERCENT as u32 / 100) as u16)
+                    .saturating_sub(2);
                 let max_scroll = ui::compute_max_scroll(&app, inner_w, inner_h);
                 app.scroll_offset = app.scroll_offset.min(max_scroll);
 
@@ -75,35 +79,41 @@ pub async fn run<A: Agent + 'static>(chat: Chat<A>) -> Result<(), Box<dyn Error>
 
                 tokio::select! {
                     maybe_event = event_reader.next() => {
-                        if let Some(Ok(Event::Key(key))) = maybe_event {
-                            match (key.code, key.modifiers) {
-                                (KeyCode::Char('c'), KeyModifiers::CONTROL)
-                                | (KeyCode::Esc, _) => {
-                                    app.should_quit = true;
-                                }
-                                (KeyCode::Enter, _) if !app.loading => {
-                                    let text = app.send_message();
-                                    if !text.trim().is_empty() {
-                                        app.push_user(text.clone());
-                                        let _ = tx_send.send(text).await;
-                                        app.loading = true;
-                                        app.scroll_to_bottom();
+                        match maybe_event {
+                            Some(Ok(Event::Key(key))) => {
+                                match (key.code, key.modifiers) {
+                                    (KeyCode::Char('c'), KeyModifiers::CONTROL)
+                                    | (KeyCode::Esc, _) => {
+                                        app.should_quit = true;
                                     }
+                                    (KeyCode::Enter, _) if !app.loading => {
+                                        let text = app.send_message();
+                                        if !text.trim().is_empty() {
+                                            app.push_user(text.clone());
+                                            let _ = tx_send.send(text).await;
+                                            app.loading = true;
+                                            app.scroll_to_bottom();
+                                        }
+                                    }
+                                    (KeyCode::Backspace, _) => app.delete_char(),
+                                    (KeyCode::Left, _) => app.move_cursor_left(),
+                                    (KeyCode::Right, _) => app.move_cursor_right(),
+                                    (KeyCode::Up, _) => app.scroll_up(1),
+                                    (KeyCode::Down, _) => app.scroll_down(1),
+                                    (KeyCode::PageUp, _) => app.scroll_up(10),
+                                    (KeyCode::PageDown, _) => app.scroll_down(10),
+                                    (KeyCode::Char(c), _) => app.insert_char(c),
+                                    _ => {}
                                 }
-                                (KeyCode::Backspace, _) => {
-                                    app.delete_char();
-                                }
-                                (KeyCode::Left, _) => {
-                                    app.move_cursor_left();
-                                }
-                                (KeyCode::Right, _) => {
-                                    app.move_cursor_right();
-                                }
-(KeyCode::Char(c), _) => {
-                                    app.insert_char(c);
-                                }
-                                _ => {}
                             }
+                            Some(Ok(Event::Mouse(mouse))) => {
+                                match mouse.kind {
+                                    MouseEventKind::ScrollUp => app.scroll_up(3),
+                                    MouseEventKind::ScrollDown => app.scroll_down(3),
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     maybe_resp = rx_resp.recv() => {

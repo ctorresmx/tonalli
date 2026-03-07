@@ -18,13 +18,27 @@ pub enum Role {
     Model,
 }
 
-pub struct Chat<A: Agent> {
-    history: Vec<Message>,
-    agent: A,
+pub enum Provider {
+    Gemini(GeminiAgent),
+    Ollama(OllamaAgent),
 }
 
-impl<A: Agent> Chat<A> {
-    pub fn new(agent: A) -> Self {
+impl Agent for Provider {
+    async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
+        match self {
+            Provider::Gemini(a) => a.generate(messages).await,
+            Provider::Ollama(a) => a.generate(messages).await,
+        }
+    }
+}
+
+pub struct Chat {
+    history: Vec<Message>,
+    agent: Provider,
+}
+
+impl Chat {
+    pub fn new(agent: Provider) -> Self {
         Self {
             history: vec![],
             agent,
@@ -51,4 +65,6 @@ pub trait Agent {
 }
 
 mod gemini;
+mod ollama;
 pub use gemini::GeminiAgent;
+pub use ollama::OllamaAgent;

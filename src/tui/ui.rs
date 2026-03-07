@@ -100,7 +100,7 @@ fn render_input(app: &App, frame: &mut Frame, area: Rect) {
     let block = Block::bordered()
         .title("Message")
         .title_top(Line::from("[Send]").right_aligned())
-        .title_bottom(Line::from("Enter: send | Esc: quit").centered());
+        .title_bottom(Line::from("Enter: send | ↑↓/PgUp/PgDn: scroll | Esc: quit").centered());
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

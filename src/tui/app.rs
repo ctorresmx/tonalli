@@ -67,6 +67,15 @@ impl App {
         std::mem::take(&mut self.input)
     }
 
+    pub fn scroll_up(&mut self, amount: u16) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(amount);
+    }
+
+    pub fn scroll_down(&mut self, amount: u16) {
+        // saturating_add; the render loop clamps to the real maximum.
+        self.scroll_offset = self.scroll_offset.saturating_add(amount);
+    }
+
     pub fn scroll_to_bottom(&mut self) {
         // u16::MAX is a sentinel; the render loop clamps it to the real maximum.
         self.scroll_offset = u16::MAX;
