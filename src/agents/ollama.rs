@@ -3,7 +3,9 @@ use std::error::Error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::{Agent, Message, Role};
+use crate::agents::Llm;
+
+use super::{Message, Role};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct OllamaRequest {
@@ -35,12 +37,12 @@ enum OllamaRole {
     Tool,
 }
 
-pub struct OllamaAgent {
+pub struct OllamaLlm {
     client: Client,
     model: String,
 }
 
-impl OllamaAgent {
+impl OllamaLlm {
     pub fn new(model: String) -> Self {
         Self {
             client: Client::new(),
@@ -49,7 +51,7 @@ impl OllamaAgent {
     }
 }
 
-impl Agent for OllamaAgent {
+impl Llm for OllamaLlm {
     async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
         let ollama_messages: Vec<OllamaMessage> =
             messages.iter().map(OllamaMessage::from).collect();
@@ -94,10 +96,10 @@ impl From<&Message> for OllamaMessage {
 impl From<OllamaRole> for Role {
     fn from(value: OllamaRole) -> Self {
         match value {
-            OllamaRole::Assistant => Role::Model,
+            OllamaRole::Assistant => Role::Assistant,
             OllamaRole::System => Role::System,
             OllamaRole::User => Role::User,
-            _ => panic!("Right now we don't support tool role for Ollama"),
+            _ => panic!("Right now we don't support {:?} role for Ollama", value),
         }
     }
 }
@@ -107,7 +109,7 @@ impl From<Role> for OllamaRole {
         match value {
             Role::System => OllamaRole::System,
             Role::User => OllamaRole::User,
-            Role::Model => OllamaRole::Assistant,
+            Role::Assistant => OllamaRole::Assistant,
         }
     }
 }

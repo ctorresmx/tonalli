@@ -3,7 +3,7 @@ mod tui;
 
 use std::error::Error;
 
-use crate::agents::{Chat, GeminiAgent, OllamaAgent, Provider};
+use crate::agents::{Agent, Chat, GeminiLlm, OllamaLlm};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -14,8 +14,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let provider = std::env::var("AGENT_PROVIDER").expect("AGENT_PROVIDER not set");
 
     let agent = match provider.as_str() {
-        "ollama" => Provider::Ollama(OllamaAgent::new(model)),
-        "gemini" => Provider::Gemini(GeminiAgent::new(api_key, model)),
+        "ollama" => Agent::Ollama(OllamaLlm::new(model)),
+        "gemini" => Agent::Gemini(GeminiLlm::new(api_key, model)),
         _ => return Err(format!("Unknown provider: {}", provider).into()),
     };
     let chat = Chat::new(agent);

@@ -32,7 +32,7 @@ impl App {
     }
 
     pub fn push_model(&mut self, text: String) {
-        self.messages.push((Role::Model, text));
+        self.messages.push((Role::Assistant, text));
     }
 
     pub fn insert_char(&mut self, c: char) {

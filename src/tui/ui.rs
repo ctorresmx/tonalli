@@ -73,8 +73,8 @@ fn build_history_lines<'a>(app: &'a App, tick: u8) -> Vec<Line<'a>> {
                     lines.push(Line::from(Span::styled(line, USER_STYLE)).right_aligned());
                 }
             }
-            Role::Model => {
-                lines.push(Line::from(Span::styled("Model", MODEL_HEADER_STYLE)));
+            Role::Assistant => {
+                lines.push(Line::from(Span::styled("Assistant", MODEL_HEADER_STYLE)));
                 for line in text.lines() {
                     lines.push(Line::from(Span::styled(line, MODEL_STYLE)));
                 }
@@ -104,7 +104,11 @@ fn render_input(app: &App, frame: &mut Frame, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let input_style = if app.loading { DIM_INPUT_STYLE } else { Style::new() };
+    let input_style = if app.loading {
+        DIM_INPUT_STYLE
+    } else {
+        Style::new()
+    };
     let para = Paragraph::new(app.input.as_str())
         .style(input_style)
         .wrap(Wrap { trim: false });

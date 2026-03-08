@@ -14,31 +14,35 @@ pub enum Role {
     System,
     #[serde(rename = "user")]
     User,
-    #[serde(rename = "model")]
-    Model,
+    #[serde(rename = "assistant")]
+    Assistant,
 }
 
-pub enum Provider {
-    Gemini(GeminiAgent),
-    Ollama(OllamaAgent),
+pub trait Llm {
+    async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>>;
 }
 
-impl Agent for Provider {
+pub enum Agent {
+    Gemini(GeminiLlm),
+    Ollama(OllamaLlm),
+}
+
+impl Llm for Agent {
     async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
         match self {
-            Provider::Gemini(a) => a.generate(messages).await,
-            Provider::Ollama(a) => a.generate(messages).await,
+            Agent::Gemini(a) => a.generate(messages).await,
+            Agent::Ollama(a) => a.generate(messages).await,
         }
     }
 }
 
 pub struct Chat {
     history: Vec<Message>,
-    agent: Provider,
+    agent: Agent,
 }
 
 impl Chat {
-    pub fn new(agent: Provider) -> Self {
+    pub fn new(agent: Agent) -> Self {
         Self {
             history: vec![],
             agent,
@@ -60,11 +64,7 @@ impl Chat {
     }
 }
 
-pub trait Agent {
-    async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>>;
-}
-
 mod gemini;
 mod ollama;
-pub use gemini::GeminiAgent;
-pub use ollama::OllamaAgent;
+pub use gemini::GeminiLlm;
+pub use ollama::OllamaLlm;

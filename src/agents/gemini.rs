@@ -3,7 +3,9 @@ use std::error::Error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::{Agent, Message, Role};
+use crate::agents::Llm;
+
+use super::{Message, Role};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GeminiRequest {
@@ -31,13 +33,13 @@ struct Content {
     parts: Vec<Part>,
 }
 
-pub struct GeminiAgent {
+pub struct GeminiLlm {
     client: Client,
     api_key: String,
     model: String,
 }
 
-impl GeminiAgent {
+impl GeminiLlm {
     pub fn new(api_key: String, model: String) -> Self {
         Self {
             client: Client::new(),
@@ -47,7 +49,7 @@ impl GeminiAgent {
     }
 }
 
-impl Agent for GeminiAgent {
+impl Llm for GeminiLlm {
     async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
         let contents: Vec<Content> = messages.iter().map(Content::from).collect();
 
