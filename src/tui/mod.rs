@@ -1,7 +1,7 @@
-use std::error::Error;
 use std::io;
 use std::time::Duration;
 
+use anyhow::{Error, Result};
 use crossterm::event::{
     DisableMouseCapture, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers,
     MouseEventKind,
@@ -30,7 +30,7 @@ impl Drop for TerminalGuard {
     }
 }
 
-pub async fn run(chat: Chat) -> Result<(), Box<dyn Error>> {
+pub async fn run(chat: Chat) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let _guard = TerminalGuard;
@@ -136,7 +136,7 @@ pub async fn run(chat: Chat) -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            Ok::<(), Box<dyn Error>>(())
+            Ok::<(), Error>(())
         })
         .await?;
 

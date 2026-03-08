@@ -1,11 +1,30 @@
-use std::error::Error;
-
+use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::agents::Llm;
 
 use super::{Message, Role};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum GeminiRole {
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "model")]
+    Model,
+}
+
+impl From<&Role> for GeminiRole {
+    fn from(role: &Role) -> Self {
+        match role {
+            Role::System => GeminiRole::System,
+            Role::User => GeminiRole::User,
+            Role::Assistant => GeminiRole::Model,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GeminiRequest {
@@ -29,7 +48,7 @@ struct Part {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Content {
-    role: Role,
+    role: GeminiRole,
     parts: Vec<Part>,
 }
 
@@ -50,7 +69,7 @@ impl GeminiLlm {
 }
 
 impl Llm for GeminiLlm {
-    async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
+    async fn generate(&self, messages: &[Message]) -> Result<Message> {
         let contents: Vec<Content> = messages.iter().map(Content::from).collect();
 
         let request_body = GeminiRequest { contents };
@@ -68,29 +87,31 @@ impl Llm for GeminiLlm {
 
         let response: GeminiResponse = response_text.json().await?;
 
-        Ok(response
+        let content = response
             .candidates
             .into_iter()
             .next()
-            .unwrap()
-            .content
-            .into())
-    }
-}
+            .ok_or_else(|| anyhow!("Gemini returned no candidates"))?
+            .content;
 
-impl From<Content> for Message {
-    fn from(value: Content) -> Self {
-        Message {
-            role: value.role,
-            text: value.parts.into_iter().next().unwrap().text,
-        }
+        let text = content
+            .parts
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("Gemini returned empty content"))?
+            .text;
+
+        Ok(Message {
+            role: Role::Assistant,
+            text,
+        })
     }
 }
 
 impl From<&Message> for Content {
     fn from(value: &Message) -> Self {
         Content {
-            role: value.role.clone(),
+            role: GeminiRole::from(&value.role),
             parts: vec![Part {
                 text: value.text.clone(),
             }],

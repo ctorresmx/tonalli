@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use anyhow::{Context, Result, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -38,13 +37,15 @@ enum OllamaRole {
 }
 
 pub struct OllamaLlm {
+    host: String,
     client: Client,
     model: String,
 }
 
 impl OllamaLlm {
-    pub fn new(model: String) -> Self {
+    pub fn new(host: String, model: String) -> Self {
         Self {
+            host,
             client: Client::new(),
             model,
         }
@@ -52,7 +53,7 @@ impl OllamaLlm {
 }
 
 impl Llm for OllamaLlm {
-    async fn generate(&self, messages: &[Message]) -> Result<Message, Box<dyn Error>> {
+    async fn generate(&self, messages: &[Message]) -> Result<Message> {
         let ollama_messages: Vec<OllamaMessage> =
             messages.iter().map(OllamaMessage::from).collect();
 
@@ -64,48 +65,55 @@ impl Llm for OllamaLlm {
 
         let response_text = self
             .client
-            .post("http://localhost:11434/api/chat")
+            .post(format!("http://{}/api/chat", self.host))
             .json(&request_body)
             .send()
             .await?;
 
-        let response: OllamaResponse = response_text.json().await?;
+        let response: OllamaResponse = response_text
+            .json()
+            .await
+            .context("failed to parse Ollama response")?;
 
-        Ok(response.message.into())
+        response.message.try_into()
     }
 }
 
-impl From<OllamaMessage> for Message {
-    fn from(value: OllamaMessage) -> Self {
-        Message {
-            role: value.role.into(),
+impl TryFrom<OllamaMessage> for Message {
+    type Error = anyhow::Error;
+
+    fn try_from(value: OllamaMessage) -> Result<Self> {
+        Ok(Message {
+            role: value.role.try_into()?,
             text: value.content,
-        }
+        })
     }
 }
 
 impl From<&Message> for OllamaMessage {
     fn from(value: &Message) -> Self {
         OllamaMessage {
-            role: value.role.clone().into(),
+            role: (&value.role).into(),
             content: value.text.clone(),
         }
     }
 }
 
-impl From<OllamaRole> for Role {
-    fn from(value: OllamaRole) -> Self {
+impl TryFrom<OllamaRole> for Role {
+    type Error = anyhow::Error;
+
+    fn try_from(value: OllamaRole) -> Result<Self> {
         match value {
-            OllamaRole::Assistant => Role::Assistant,
-            OllamaRole::System => Role::System,
-            OllamaRole::User => Role::User,
-            _ => panic!("Right now we don't support {:?} role for Ollama", value),
+            OllamaRole::Assistant => Ok(Role::Assistant),
+            OllamaRole::System => Ok(Role::System),
+            OllamaRole::User => Ok(Role::User),
+            OllamaRole::Tool => Err(anyhow!("unsupported Ollama role: {:?}", value)),
         }
     }
 }
 
-impl From<Role> for OllamaRole {
-    fn from(value: Role) -> Self {
+impl From<&Role> for OllamaRole {
+    fn from(value: &Role) -> Self {
         match value {
             Role::System => OllamaRole::System,
             Role::User => OllamaRole::User,
