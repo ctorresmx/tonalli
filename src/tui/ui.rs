@@ -29,7 +29,7 @@ pub(super) fn compute_max_scroll(app: &App, inner_width: u16, inner_height: u16)
         total += 1; // role header
         for line in text.lines() {
             let chars = line.chars().count() as u16;
-            total += ((chars + width - 1) / width).max(1);
+            total += chars.div_ceil(width).max(1);
         }
         total += 1; // blank separator
     }

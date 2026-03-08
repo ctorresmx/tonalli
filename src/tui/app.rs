@@ -1,5 +1,6 @@
 use crate::agents::Role;
 
+#[derive(Default)]
 pub struct App {
     pub messages: Vec<(Role, String)>,
     pub input: String,
@@ -7,19 +8,6 @@ pub struct App {
     pub scroll_offset: u16,
     pub loading: bool,
     pub should_quit: bool,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            messages: Vec::new(),
-            input: String::new(),
-            input_cursor: 0,
-            scroll_offset: 0,
-            loading: false,
-            should_quit: false,
-        }
-    }
 }
 
 impl App {
